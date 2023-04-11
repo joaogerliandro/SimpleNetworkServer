@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
             acceptor.accept(socket);
             std::cout << "[SERVER]: New connection established" << std::endl;
 
-            std::string message = "Connected successfully !";
+            std::string message = "Connected successfully !\n";
 
             boost::system::error_code ignored_error;
 
