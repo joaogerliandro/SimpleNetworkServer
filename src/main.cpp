@@ -17,12 +17,6 @@ class Client
 
 std::vector<Client> client_list;
 
-void send_to_all_clients(std::string message)
-{
-    for(Client client : client_list)
-        boost::asio::write(client.m_socket, boost::asio::buffer(message + "\n"));
-}
-
 void new_session(tcp::socket socket)
 {
     client_list.push_back(Client(socket));
@@ -39,7 +33,28 @@ void new_session(tcp::socket socket)
 
         std::cout << "[" << socket.remote_endpoint() << "-RESPONSE]: " << response_message << std::endl;
 
-        send_to_all_clients(response_message);
+        size_t str_len = response_message.length();
+
+        if(str_len > 10)
+        {
+            std::string str_return; 
+            for(int i = 0; i < str_len; i++)
+                str_return += "g";
+
+            response_message = str_return;
+        }
+        else
+        {
+            int32_t number = atol(response_message.c_str());
+
+            std::string str_return; 
+            if(number % 2 == 0)
+                str_return = "O Numero: " + std::to_string(number) + " é PAR";
+            else
+                str_return = "O Numero: " + std::to_string(number) + " é IMPAR";
+        }
+
+        boost::asio::write(socket, boost::asio::buffer(response_message + "\n"));
     }
 }
 
