@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 #include <string>
 #include <thread>
 
@@ -6,8 +7,26 @@
 
 using boost::asio::ip::tcp;
 
+class Client
+{
+    public:
+        Client(tcp::socket& socket) : m_socket(socket) {}
+
+        tcp::socket& m_socket;
+};
+
+std::vector<Client> client_list;
+
+void send_to_all_clients(std::string message)
+{
+    for(Client client : client_list)
+        boost::asio::write(client.m_socket, boost::asio::buffer(message + "\n"));
+}
+
 void new_session(tcp::socket socket)
 {
+    client_list.push_back(Client(socket));
+
     for (;;)
     {
         boost::asio::streambuf response_buffer;
@@ -20,7 +39,7 @@ void new_session(tcp::socket socket)
 
         std::cout << "[" << socket.remote_endpoint() << "-RESPONSE]: " << response_message << std::endl;
 
-        boost::asio::write(socket, boost::asio::buffer("OK\n"));
+        send_to_all_clients(response_message);
     }
 }
 
