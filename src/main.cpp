@@ -33,13 +33,22 @@ void new_session(tcp::socket socket)
 
         std::cout << "[" << socket.remote_endpoint() << "-RESPONSE]: " << response_message << std::endl;
 
+        boost::asio::ip::port_type sender_port = socket.remote_endpoint().port();
+        boost::asio::ip::address sender_adress = socket.remote_endpoint().address();
+
+        std::string sender_ip = sender_adress.to_string() + ":" + std::to_string(sender_port);
+
         for(Client client : client_list)
         {
-            std::string client_adress = (client.m_socket).remote_endpoint().address().to_string() + ":" + std::to_string((client.m_socket).remote_endpoint().port());
+            if(client.m_socket.remote_endpoint().address() == sender_adress &&
+               client.m_socket.remote_endpoint().port() == sender_port)
+            {
+                sender_ip = "localhost";
+            }
 
-            response_message = "[" + client_adress + "-RESPONSE]: " + response_message;
+            std::string global_mensage = "[" + sender_ip + "-RESPONSE]: " + response_message;
             
-            boost::asio::write(client.m_socket, boost::asio::buffer(response_message + "\n"));
+            boost::asio::write(client.m_socket, boost::asio::buffer(global_mensage + "\n"));
         }
     }
 }
@@ -61,7 +70,7 @@ int main(int argc, char *argv[])
 
             std::cout << "[SERVER]: Connection established with " << socket.remote_endpoint() << std::endl;
 
-            boost::asio::write(socket, boost::asio::buffer("Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !\n"));
+            boost::asio::write(socket, boost::asio::buffer("[SERVER-RESPONSE]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !\n"));
 
             std::thread(new_session, std::move(socket)).detach();
         }
