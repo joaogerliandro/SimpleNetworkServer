@@ -33,28 +33,14 @@ void new_session(tcp::socket socket)
 
         std::cout << "[" << socket.remote_endpoint() << "-RESPONSE]: " << response_message << std::endl;
 
-        size_t str_len = response_message.length();
-
-        if(str_len > 10)
+        for(Client client : client_list)
         {
-            std::string str_return; 
-            for(int i = 0; i < str_len; i++)
-                str_return += "g";
+            std::string client_adress = (client.m_socket).remote_endpoint().address().to_string() + ":" + std::to_string((client.m_socket).remote_endpoint().port());
 
-            response_message = str_return;
+            response_message = "[" + client_adress + "-RESPONSE]: " + response_message;
+            
+            boost::asio::write(client.m_socket, boost::asio::buffer(response_message + "\n"));
         }
-        else
-        {
-            int32_t number = atol(response_message.c_str());
-
-            std::string str_return; 
-            if(number % 2 == 0)
-                str_return = "O Numero: " + std::to_string(number) + " é PAR";
-            else
-                str_return = "O Numero: " + std::to_string(number) + " é IMPAR";
-        }
-
-        boost::asio::write(socket, boost::asio::buffer(response_message + "\n"));
     }
 }
 
@@ -75,7 +61,7 @@ int main(int argc, char *argv[])
 
             std::cout << "[SERVER]: Connection established with " << socket.remote_endpoint() << std::endl;
 
-            boost::asio::write(socket, boost::asio::buffer("Welcome new connection !\n"));
+            boost::asio::write(socket, boost::asio::buffer("Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !\n"));
 
             std::thread(new_session, std::move(socket)).detach();
         }
