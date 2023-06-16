@@ -40,13 +40,13 @@ void new_session(tcp::socket socket)
 
         for(Client client : client_list)
         {
+            std::string global_mensage;
+
             if(client.m_socket.remote_endpoint().address() == sender_adress &&
                client.m_socket.remote_endpoint().port() == sender_port)
-            {
-                sender_ip = "localhost";
-            }
-
-            std::string global_mensage = "[" + sender_ip + "]: " + response_message;
+                global_mensage = "[LOCALHOST]: " + response_message;
+            else
+                global_mensage = "[" + sender_ip + "]: " + response_message;
             
             boost::asio::write(client.m_socket, boost::asio::buffer(global_mensage + "\n"));
         }
