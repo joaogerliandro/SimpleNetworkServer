@@ -35,7 +35,7 @@ std::string list_open_rooms()
     std::string room_list_str;
 
     for(Room room : room_list)
-        room_list_str += room.m_name + " is open with " + std::to_string(room.m_size) + " spaces !#";
+        room_list_str += "\n- [" + room.m_name + "] is open with " + std::to_string(room.m_size) + " spaces !";
 
     return room_list_str;
 }
@@ -44,9 +44,9 @@ void connection_handshake(tcp::socket& socket)
 {
     client_list.push_back(Client(socket));
     
-    std::string handshake_message = "[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !#";
+    std::string handshake_message = "[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !";
 
-    handshake_message += "[SERVER]: Open Rooms in the Server: #" + list_open_rooms();
+    handshake_message += "\n[SERVER]: Open rooms in the Server: " + list_open_rooms();
 
     boost::asio::write(socket, boost::asio::buffer(handshake_message + "\n"));
 }
