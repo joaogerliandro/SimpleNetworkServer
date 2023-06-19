@@ -30,17 +30,30 @@ class Room
 std::vector<Room> room_list;
 std::vector<Client> client_list;
 
-void list_open_rooms()
+std::string list_open_rooms()
 {
+    std::string room_list_str;
+
     for(Room room : room_list)
-        std::cout << "[SERVER]: "+ room.m_name + " is open with " + std::to_string(room.m_size) + " spaces !" << std::endl;
+        room_list_str += room.m_name + " is open with " + std::to_string(room.m_size) + " spaces !#";
+
+    return room_list_str;
+}
+
+void connection_handshake(tcp::socket& socket)
+{
+    client_list.push_back(Client(socket));
+    
+    std::string handshake_message = "[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !#";
+
+    handshake_message += "[SERVER]: Open Rooms in the Server: #" + list_open_rooms();
+
+    boost::asio::write(socket, boost::asio::buffer(handshake_message + "\n"));
 }
 
 void new_session(tcp::socket socket)
 {
-    boost::asio::write(socket, boost::asio::buffer("[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !\n"));
-    
-    client_list.push_back(Client(socket));
+    connection_handshake(socket);
 
     for (;;)
     {
@@ -79,13 +92,12 @@ int main(int argc, char *argv[])
     try
     {
         room_list.push_back(Room(std::string("DEFAULT-ROOM"), 8));
+        room_list.push_back(Room(std::string("PRIVATE-ROOM"), 2));
 
         boost::asio::io_service io_service;
 
         tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 4444));
         std::cout << "[SERVER]: Awaiting connections ..." << std::endl;
-
-        list_open_rooms();
 
         for (;;)
         {
