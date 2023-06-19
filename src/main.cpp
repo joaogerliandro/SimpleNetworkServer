@@ -15,7 +15,26 @@ class Client
         tcp::socket& m_socket;
 };
 
+class Room
+{
+    public:
+        Room(std::string room_name, std::uint8_t room_size) : m_name(room_name), m_size(room_size) {}
+    
+        std::uint8_t m_size;
+        std::string m_name;
+
+    private:
+        std::vector<Client> m_client_list;
+};
+
+std::vector<Room> room_list;
 std::vector<Client> client_list;
+
+void list_open_rooms()
+{
+    for(Room room : room_list)
+        std::cout << "[SERVER]: "+ room.m_name + " is open with " + std::to_string(room.m_size) + " spaces !" << std::endl;
+}
 
 void new_session(tcp::socket socket)
 {
@@ -57,10 +76,14 @@ int main(int argc, char *argv[])
 {
     try
     {
+        room_list.push_back(Room(std::string("DEFAULT-ROOM"), 8));
+
         boost::asio::io_service io_service;
 
         tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 4444));
         std::cout << "[SERVER]: Awaiting connections ..." << std::endl;
+
+        list_open_rooms();
 
         for (;;)
         {
