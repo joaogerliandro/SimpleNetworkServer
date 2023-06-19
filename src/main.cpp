@@ -38,6 +38,8 @@ void list_open_rooms()
 
 void new_session(tcp::socket socket)
 {
+    boost::asio::write(socket, boost::asio::buffer("[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !\n"));
+    
     client_list.push_back(Client(socket));
 
     for (;;)
@@ -91,9 +93,7 @@ int main(int argc, char *argv[])
 
             acceptor.accept(socket);
 
-            std::cout << "[SERVER]: Connection established with " << socket.remote_endpoint() << std::endl;
-
-            boost::asio::write(socket, boost::asio::buffer("[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !\n"));
+            std::cout << "[SERVER]: Connection established with [" << socket.remote_endpoint() << "]" << std::endl;
 
             std::thread(new_session, std::move(socket)).detach();
         }
