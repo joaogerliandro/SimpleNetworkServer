@@ -67,17 +67,16 @@ void new_session(tcp::socket socket)
 
         std::cout << "[" << socket.remote_endpoint() << "]: " << response_message << std::endl;
 
-        boost::asio::ip::port_type sender_port = socket.remote_endpoint().port();
-        boost::asio::ip::address sender_adress = socket.remote_endpoint().address();
+        boost::asio::ip::tcp::endpoint sender_endpoint = socket.remote_endpoint();
 
-        std::string sender_ip = sender_adress.to_string() + ":" + std::to_string(sender_port);
+        std::string sender_ip = sender_endpoint.address().to_string() + ":" + std::to_string(sender_endpoint.port());
 
         for(Client client : client_list)
         {
             std::string global_mensage;
 
-            if(client.m_socket.remote_endpoint().address() == sender_adress &&
-               client.m_socket.remote_endpoint().port() == sender_port)
+            if(client.m_socket.remote_endpoint().address() == sender_endpoint.address() &&
+               client.m_socket.remote_endpoint().port() == sender_endpoint.port())
                 global_mensage = "[LOCALHOST]: " + response_message;
             else
                 global_mensage = "[" + sender_ip + "]: " + response_message;
