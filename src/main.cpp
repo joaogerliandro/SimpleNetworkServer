@@ -18,12 +18,11 @@ class Client
 class Room
 {
     public:
-        Room(std::string room_name, std::uint8_t room_size) : m_name(room_name), m_size(room_size) {}
+        Room(std::string room_name, std::uint8_t room_size, std::uint8_t room_id) : m_name(room_name), m_size(room_size), m_id(room_id) {}
     
+        std::uint32_t m_id;
         std::uint8_t m_size;
         std::string m_name;
-
-    private:
         std::vector<Client> m_client_list;
 };
 
@@ -35,27 +34,60 @@ std::string list_open_rooms()
     std::string room_list_str;
 
     for(Room room : room_list)
-        room_list_str += "\n- [" + room.m_name + "] is open with " + std::to_string(room.m_size) + " spaces !";
+        room_list_str += "\n- [" + room.m_name + "] ID:" + std::to_string(room.m_id) + " is open with " + std::to_string(room.m_size) + " spaces !";
 
     return room_list_str;
 }
 
 void connection_handshake(tcp::socket& socket)
 {
-    client_list.push_back(Client(socket));
+    Client new_client(socket);
+    
+    client_list.push_back(new_client);
     
     std::string handshake_message = "[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !";
 
     handshake_message += "\n[SERVER]: Open rooms in the Server: " + list_open_rooms();
 
     boost::asio::write(socket, boost::asio::buffer(handshake_message + "\n"));
+
+    bool handshake_is_over = false;
+
+    while(true)
+    {
+        boost::asio::streambuf response_buffer;
+
+        boost::asio::read_until(socket, response_buffer, "\n");
+
+        std::string response_message = boost::asio::buffer_cast<const char *>(response_buffer.data());
+
+        response_message.erase(std::remove(response_message.begin(), response_message.end(), '\n'), response_message.cend());
+
+        for(Room room : room_list)
+        {
+            if(std::stoul(response_message) == room.m_id)
+            {
+                room.m_client_list.push_back(new_client);
+
+                boost::asio::write(socket, boost::asio::buffer("[SERVER]: You have connected to " + room.m_name + "!\n"));
+
+                handshake_is_over = true;
+                break;
+            }       
+        }
+
+        if(handshake_is_over)
+            break;
+
+        boost::asio::write(socket, boost::asio::buffer("NOK\n"));
+    }
 }
 
 void new_session(tcp::socket socket)
 {
     connection_handshake(socket);
 
-    for (;;)
+    while (true)
     {
         boost::asio::streambuf response_buffer;
 
@@ -90,15 +122,15 @@ int main(int argc, char *argv[])
 {
     try
     {
-        room_list.push_back(Room(std::string("DEFAULT-ROOM"), 8));
-        room_list.push_back(Room(std::string("PRIVATE-ROOM"), 2));
+        room_list.push_back(Room(std::string("DEFAULT-ROOM"), 8, 1));
+        room_list.push_back(Room(std::string("PRIVATE-ROOM"), 2, 2));
 
         boost::asio::io_service io_service;
 
         tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), 4444));
         std::cout << "[SERVER]: Awaiting connections ..." << std::endl;
 
-        for (;;)
+        while (true)
         {
             tcp::socket socket(io_service);
 
