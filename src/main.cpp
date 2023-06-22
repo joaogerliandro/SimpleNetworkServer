@@ -132,6 +132,8 @@ void forward_message(Client &sender_client, std::string response_message)
 
 void new_session(tcp::socket socket)
 {
+    boost::asio::ip::tcp::endpoint temp_endpoint = socket.remote_endpoint();
+
     try
     {
         connection_handshake(socket);
@@ -150,7 +152,7 @@ void new_session(tcp::socket socket)
         client_list.erase(std::remove_if(client_list.begin(), client_list.end(),
                                          [&](const Client &client)
                                          {
-                                             return client.m_socket.remote_endpoint() == socket.remote_endpoint();
+                                             return client.m_socket.remote_endpoint() == temp_endpoint;
                                          }),
                           client_list.end());
 
