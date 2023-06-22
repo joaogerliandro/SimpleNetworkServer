@@ -152,6 +152,21 @@ void new_session(tcp::socket socket)
     }
     catch (const boost::system::system_error &system_error)
     {
+        for(Client client : client_list)
+        {
+            if(client.m_endpoint == temp_endpoint)
+            {
+                Room room = room_list[client.m_room_id - 1];
+
+                room.m_client_list.erase(std::remove_if(client_list.begin(), client_list.end(),
+                                         [&](const Client &client)
+                                         {
+                                             return client.m_endpoint == temp_endpoint;
+                                         }),
+                          client_list.end());
+            }
+        }
+
         client_list.erase(std::remove_if(client_list.begin(), client_list.end(),
                                          [&](const Client &client)
                                          {
