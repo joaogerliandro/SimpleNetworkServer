@@ -160,7 +160,8 @@ void new_session(tcp::socket socket)
                           client_list.end());
 
         std::cout << "[SERVER]: Connection closed with [" << temp_endpoint << "]" << std::endl;
-        //socket.close();
+
+        std::cout << "[SERVER]: Connected clients: " << client_list.size() << std::endl;
     }
 }
 
