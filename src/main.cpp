@@ -12,7 +12,7 @@ std::uint32_t room_count = 0;
 class Client
 {
 public:
-    Client(tcp::socket &socket) : m_socket(socket) {}
+    Client(tcp::socket &socket) : m_socket(socket), m_endpoint(socket.remote_endpoint()) {}
 
     Client(const Client &) = default;
 
@@ -27,6 +27,9 @@ public:
     }
 
     tcp::socket &m_socket;
+    boost::asio::ip::tcp::endpoint m_endpoint;
+
+    std::string m_name;
     std::uint32_t m_room_id;
 };
 
@@ -114,7 +117,7 @@ std::string listen_client(tcp::socket &socket)
 
 void forward_message(Client &sender_client, std::string response_message)
 {
-    boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_socket.remote_endpoint();
+    boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_endpoint;
 
     std::string sender_ip = sender_endpoint.address().to_string() + ":" + std::to_string(sender_endpoint.port());
 
@@ -124,7 +127,7 @@ void forward_message(Client &sender_client, std::string response_message)
               << "-[" << sender_endpoint << "]: " << response_message << std::endl;
 
     for (Client receiver_client : receiver_room.m_client_list)
-        if (receiver_client.m_socket.remote_endpoint() == sender_endpoint)
+        if (receiver_client.m_endpoint == sender_endpoint)
             boost::asio::write(receiver_client.m_socket, boost::asio::buffer("[LOCALHOST]: " + response_message + "\n"));
         else
             boost::asio::write(receiver_client.m_socket, boost::asio::buffer("[" + sender_ip + "]: " + response_message + "\n"));
@@ -143,7 +146,7 @@ void new_session(tcp::socket socket)
             std::string response_message = listen_client(socket);
 
             for (Client client : client_list)
-                if (client.m_socket.remote_endpoint() == socket.remote_endpoint())
+                if (client.m_endpoint == socket.remote_endpoint())
                     forward_message(client, response_message);
         }
     }
@@ -152,7 +155,7 @@ void new_session(tcp::socket socket)
         client_list.erase(std::remove_if(client_list.begin(), client_list.end(),
                                          [&](const Client &client)
                                          {
-                                             return client.m_socket.remote_endpoint() == temp_endpoint;
+                                             return client.m_endpoint == temp_endpoint;
                                          }),
                           client_list.end());
 
