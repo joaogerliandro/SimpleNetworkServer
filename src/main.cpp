@@ -14,6 +14,18 @@ class Client
 public:
     Client(tcp::socket &socket) : m_socket(socket) {}
 
+    Client(const Client &) = default;
+
+    Client &operator=(Client &&other)
+    {
+        if (this != &other)
+        {
+            m_socket = std::move(other.m_socket);
+            m_room_id = std::move(other.m_room_id);
+        }
+        return *this;
+    }
+
     tcp::socket &m_socket;
     std::uint32_t m_room_id;
 };
@@ -87,7 +99,7 @@ void connection_handshake(tcp::socket &socket)
     }
 }
 
-std::string listen_client(tcp::socket& socket)
+std::string listen_client(tcp::socket &socket)
 {
     boost::asio::streambuf response_buffer;
 
@@ -108,7 +120,8 @@ void forward_message(Client &sender_client, std::string response_message)
 
     Room receiver_room = room_list[sender_client.m_room_id - 1];
 
-    std::cout << "[" << receiver_room.m_name << "]" << "-[" << sender_endpoint << "]: " << response_message << std::endl;
+    std::cout << "[" << receiver_room.m_name << "]"
+              << "-[" << sender_endpoint << "]: " << response_message << std::endl;
 
     for (Client receiver_client : receiver_room.m_client_list)
         if (receiver_client.m_socket.remote_endpoint() == sender_endpoint)
@@ -119,15 +132,30 @@ void forward_message(Client &sender_client, std::string response_message)
 
 void new_session(tcp::socket socket)
 {
-    connection_handshake(socket);
-
-    while (true)
+    try
     {
-        std::string response_message = listen_client(socket);
+        connection_handshake(socket);
 
-        for (Client client : client_list)
-            if (client.m_socket.remote_endpoint() == socket.remote_endpoint())
-                forward_message(client, response_message);
+        while (true)
+        {
+            std::string response_message = listen_client(socket);
+
+            for (Client client : client_list)
+                if (client.m_socket.remote_endpoint() == socket.remote_endpoint())
+                    forward_message(client, response_message);
+        }
+    }
+    catch (const boost::system::system_error &system_error)
+    {
+        client_list.erase(std::remove_if(client_list.begin(), client_list.end(),
+                                         [&](const Client &client)
+                                         {
+                                             return client.m_socket.remote_endpoint() == socket.remote_endpoint();
+                                         }),
+                          client_list.end());
+
+        std::cout << "[SERVER]: Connection closed with [" << socket.remote_endpoint() << "]" << std::endl;
+        socket.close();
     }
 }
 
