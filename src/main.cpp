@@ -52,7 +52,7 @@ std::string list_open_rooms()
     std::string room_list_str;
 
     for (Room room : room_list)
-        room_list_str += "\n- [" + room.m_name + "] ID:" + std::to_string(room.m_id) + " is open with " + std::to_string(room.m_size) + " spaces !";
+        room_list_str += "ID = " + std::to_string(room.m_id) + "#Name = " + room.m_name + "#Size = " + std::to_string(room.m_size) + "\n";
 
     return room_list_str;
 }
@@ -61,11 +61,7 @@ void connection_handshake(tcp::socket &socket)
 {
     Client new_client(socket);
 
-    std::string handshake_message = "[SERVER]: Welcome " + socket.remote_endpoint().address().to_string() + ":" + std::to_string(socket.remote_endpoint().port()) + " !";
-
-    handshake_message += "\n[SERVER]: Open rooms in the Server: " + list_open_rooms();
-
-    boost::asio::write(socket, boost::asio::buffer(handshake_message + "\n"));
+    boost::asio::write(socket, boost::asio::buffer(list_open_rooms() + "\n"));
 
     bool handshake_is_over = false;
 
@@ -75,7 +71,7 @@ void connection_handshake(tcp::socket &socket)
 
         boost::asio::read_until(socket, handshake_buffer, "\n");
 
-        handshake_message = boost::asio::buffer_cast<const char *>(handshake_buffer.data());
+        std::string handshake_message = boost::asio::buffer_cast<const char *>(handshake_buffer.data());
 
         handshake_message.erase(std::remove(handshake_message.begin(), handshake_message.end(), '\n'), handshake_message.cend());
 
