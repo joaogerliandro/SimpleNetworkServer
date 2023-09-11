@@ -52,7 +52,7 @@ std::string list_open_rooms()
     std::string room_list_str;
 
     for (Room room : room_list)
-        room_list_str += "ID = " + std::to_string(room.m_id) + "#Name = " + room.m_name + "#Size = " + std::to_string(room.m_size) + "\n";
+        room_list_str += "ID:" + std::to_string(room.m_id) + ";Name:" + room.m_name + ";Size:" + std::to_string(room.m_size) + ";Connected:" + std::to_string(room.m_client_list.size()) + "\n";
 
     return room_list_str;
 }
