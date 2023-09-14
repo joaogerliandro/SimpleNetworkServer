@@ -81,7 +81,7 @@ void connection_handshake(tcp::socket &socket)
             {
                 new_client.m_room_id = room.m_id;
 
-                boost::asio::write(socket, boost::asio::buffer("[SERVER]: You have connected to " + room.m_name + "!\n"));
+                std::cout << "[SERVER]: Client [" << socket.remote_endpoint() << "] have connected to [" << room.m_name << "]" << std::endl;
 
                 client_list.push_back(new_client);
                 room_list[room.m_id - 1].m_client_list.push_back(new_client);
@@ -93,8 +93,6 @@ void connection_handshake(tcp::socket &socket)
 
         if (handshake_is_over)
             break;
-
-        boost::asio::write(socket, boost::asio::buffer("NOK\n"));
     }
 }
 
