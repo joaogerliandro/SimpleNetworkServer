@@ -122,7 +122,7 @@ void forward_message(Client &sender_client, std::string response_message)
 
     for (Client receiver_client : receiver_room.m_client_list)
         if (receiver_client.m_endpoint == sender_endpoint)
-            boost::asio::write(receiver_client.m_socket, boost::asio::buffer("[LOCALHOST]: " + response_message + "\n"));
+            boost::asio::write(receiver_client.m_socket, boost::asio::buffer("<font color='blue'>[LOCALHOST]: " + response_message + "</font>\n"));
         else
             boost::asio::write(receiver_client.m_socket, boost::asio::buffer("[" + sender_ip + "]: " + response_message + "\n"));
 }
