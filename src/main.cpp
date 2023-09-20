@@ -57,6 +57,19 @@ std::string list_open_rooms()
     return room_list_str;
 }
 
+void forward_welcome_message(Client &sender_client, Room &receiver_room)
+{
+    boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_endpoint;
+
+    std::string sender_ip = sender_endpoint.address().to_string() + ":" + std::to_string(sender_endpoint.port());
+
+    for (Client receiver_client : receiver_room.m_client_list)
+        if (receiver_client.m_endpoint == sender_endpoint)
+            boost::asio::write(receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Welcome ! You have connected to [" + receiver_room.m_name + "] !\n"));
+        else
+            boost::asio::write(receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + sender_ip + "] have connected !\n"));
+}
+
 void connection_handshake(tcp::socket &socket)
 {
     Client new_client(socket);
@@ -85,6 +98,8 @@ void connection_handshake(tcp::socket &socket)
 
                 client_list.push_back(new_client);
                 room_list[room.m_id - 1].m_client_list.push_back(new_client);
+
+                forward_welcome_message(new_client, room_list[room.m_id - 1]);
 
                 handshake_is_over = true;
                 break;
