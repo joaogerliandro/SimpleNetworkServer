@@ -8,6 +8,7 @@
 using boost::asio::ip::tcp;
 
 std::uint32_t room_count = 0;
+std::uint32_t client_count = 0;
 
 class Client
 {
@@ -30,6 +31,7 @@ public:
     boost::asio::ip::tcp::endpoint m_endpoint;
 
     std::string m_name;
+    std::uint32_t m_id;
     std::uint32_t m_room_id;
 };
 
@@ -92,6 +94,7 @@ void connection_handshake(tcp::socket &socket)
         {
             if (std::stoul(handshake_message) == room.m_id)
             {
+                new_client.m_id = client_count++;
                 new_client.m_room_id = room.m_id;
 
                 std::cout << "[SERVER]: Client [" << socket.remote_endpoint() << "] have connected to [" << room.m_name << "]" << std::endl;
@@ -161,27 +164,29 @@ void new_session(tcp::socket socket)
     }
     catch (const boost::system::system_error &system_error)
     {
-        for (Client client : client_list)
+        std::cout << "[SERVER]: Connection closed with [" << temp_endpoint << "]" << std::endl;
+
+        for (std::vector<Client>::iterator client_it = client_list.begin(); client_it != client_list.end(); client_it++)
         {
-            if (client.m_endpoint == temp_endpoint)
+            if ((*client_it).m_endpoint == temp_endpoint)
             {
-                room_list[client.m_room_id - 1].m_client_list.erase(std::remove_if(client_list.begin(), client_list.end(),
-                                                                                   [&](const Client &client)
-                                                                                   {
-                                                                                       return client.m_endpoint == temp_endpoint;
-                                                                                   }),
-                                                                    client_list.end());
+                std::vector<Client>::iterator begin_it = room_list[(*client_it).m_room_id - 1].m_client_list.begin();
+                std::vector<Client>::iterator end_it = room_list[(*client_it).m_room_id - 1].m_client_list.end();
+
+                for(std::vector<Client>::iterator room_client_it = begin_it; client_it != end_it; client_it++)
+                {
+                    if((*room_client_it).m_id == (*client_it).m_id)
+                    {
+                        room_list[(*room_client_it).m_room_id - 1].m_client_list.erase(room_client_it);
+                        break;
+                    }
+                }
+
+                (*client_it).m_socket.close();
+                client_list.erase(client_it);
+                break;
             }
         }
-
-        client_list.erase(std::remove_if(client_list.begin(), client_list.end(),
-                                         [&](const Client &client)
-                                         {
-                                             return client.m_endpoint == temp_endpoint;
-                                         }),
-                          client_list.end());
-
-        std::cout << "[SERVER]: Connection closed with [" << temp_endpoint << "]" << std::endl;
 
         std::cout << "[SERVER]: Connected clients: " << client_list.size() << std::endl;
     }
