@@ -68,18 +68,23 @@ void forward_welcome_message(Client &sender_client, Room &receiver_room)
 {
     boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_endpoint;
 
-    std::string sender_ip = sender_endpoint.address().to_string() + ":" + std::to_string(sender_endpoint.port());
-
     for (Client receiver_client : receiver_room.m_client_list)
         if (receiver_client.m_endpoint == sender_endpoint)
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Welcome ! You have connected to [" + receiver_room.m_name + "] !\n"));
+            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Welcome " + receiver_client.m_name + " ! You have connected to [" + receiver_room.m_name + "] !\n"));
         else
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + sender_ip + "] have connected !\n"));
+            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + sender_client.m_name + "] have connected !\n"));
 }
 
 void connection_handshake(tcp::socket *socket)
 {
     Client new_client(socket);
+
+    boost::asio::streambuf user_buffer; 
+    boost::asio::read_until(*socket, user_buffer, '\n');
+
+    std::string user_name = boost::asio::buffer_cast<const char *>(user_buffer.data());
+    
+    user_name.erase(std::remove(user_name.begin(), user_name.end(), '\n'), user_name.cend());
 
     boost::asio::write(*socket, boost::asio::buffer(list_open_rooms() + "\n"));
 
@@ -100,9 +105,10 @@ void connection_handshake(tcp::socket *socket)
             if (std::stoul(handshake_message) == room.m_id)
             {
                 new_client.m_id = client_count++;
+                new_client.m_name = user_name;
                 new_client.m_room_id = room.m_id;
 
-                std::cout << "[SERVER]: Client [" << socket->remote_endpoint() << "] have connected to [" << room.m_name << "]" << std::endl;
+                std::cout << "[SERVER]: Client [" << socket->remote_endpoint() << "]-[" << user_name << "] have connected to [" << room.m_name << "]" << std::endl;
 
                 client_list.push_back(new_client);
                 room_list[room.m_id - 1].m_client_list.push_back(new_client);
@@ -135,7 +141,6 @@ std::string listen_client(tcp::socket *socket)
 void remove_client(Client &client)
 {
     boost::asio::ip::tcp::endpoint disconnected_endpoint = client.m_endpoint;
-    std::string disconnected_ip = disconnected_endpoint.address().to_string() + ":" + std::to_string(disconnected_endpoint.port());
 
     bool client_found = false;
     std::vector<Client>::iterator room_client_it = room_list[client.m_room_id - 1].m_client_list.begin();
@@ -144,7 +149,7 @@ void remove_client(Client &client)
     {
         if(other_client.m_id != client.m_id)
         {
-            boost::asio::write(*(other_client.m_socket), boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + disconnected_ip + "] have disconnected !\n"));
+            boost::asio::write(*(other_client.m_socket), boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + client.m_name + "] have disconnected !\n"));
             
             if(!client_found)
             {
@@ -182,18 +187,17 @@ void forward_message(Client &sender_client, std::string response_message)
 {
     boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_endpoint;
 
-    std::string sender_ip = sender_endpoint.address().to_string() + ":" + std::to_string(sender_endpoint.port());
-
     Room receiver_room = room_list[sender_client.m_room_id - 1];
 
     std::cout << "[" << receiver_room.m_name << "]"
-              << "-[" << sender_endpoint << "]: " << response_message << std::endl;
+              << "-[" << sender_endpoint << "]"
+              << "-[" << sender_client.m_name << "]: " << response_message << std::endl;
 
     for (Client receiver_client : receiver_room.m_client_list)
         if (receiver_client.m_endpoint == sender_endpoint)
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='blue'>LOCALHOST</font>]: " + response_message + "\n"));
+            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='blue'>" + receiver_client.m_name + "</font>]: " + response_message + "\n"));
         else
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='red'>" + sender_ip + "</font>]: " + response_message + "\n"));
+            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='red'>" + sender_client.m_name + "</font>]: " + response_message + "\n"));
 }
 
 void new_session(tcp::socket *socket)
