@@ -27,6 +27,11 @@ public:
         return *this;
     }
 
+    bool operator==(const Client& other) const
+    {
+        return (m_id == other.m_id && m_endpoint == other.m_endpoint);
+    }
+
     tcp::socket *m_socket;
     boost::asio::ip::tcp::endpoint m_endpoint;
 
@@ -127,6 +132,52 @@ std::string listen_client(tcp::socket *socket)
     return response_message;
 }
 
+void remove_client(Client &client)
+{
+    boost::asio::ip::tcp::endpoint disconnected_endpoint = client.m_endpoint;
+    std::string disconnected_ip = disconnected_endpoint.address().to_string() + ":" + std::to_string(disconnected_endpoint.port());
+
+    bool client_found = false;
+    std::vector<Client>::iterator room_client_it = room_list[client.m_room_id - 1].m_client_list.begin();
+
+    for(Client other_client : room_list[client.m_room_id - 1].m_client_list)
+    {
+        if(other_client.m_id != client.m_id)
+        {
+            boost::asio::write(*(other_client.m_socket), boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + disconnected_ip + "] have disconnected !\n"));
+            
+            if(!client_found)
+            {
+                room_client_it++;
+            }
+        }
+        else
+        {
+            client_found = true;
+        }
+    }
+
+    room_list[client.m_room_id - 1].m_client_list.erase(room_client_it);
+
+    client.m_socket->close();
+
+    std::vector<Client>::iterator client_it = client_list.begin();
+
+    for(Client other_client : client_list)
+    {
+        if(other_client.m_id != client.m_id)
+        {
+            client_it++;
+        }
+        else
+        {
+            break;
+        }
+    }   
+
+    client_list.erase(client_it);
+}
+
 void forward_message(Client &sender_client, std::string response_message)
 {
     boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_endpoint;
@@ -147,6 +198,8 @@ void forward_message(Client &sender_client, std::string response_message)
 
 void new_session(tcp::socket *socket)
 {
+    const boost::asio::ip::tcp::endpoint temp_endpoint = socket->remote_endpoint();
+
     try
     {
         connection_handshake(socket);
@@ -156,56 +209,19 @@ void new_session(tcp::socket *socket)
             std::string response_message = listen_client(socket);
 
             for (Client client : client_list)
-                if (client.m_endpoint == socket->remote_endpoint())
+                if (client.m_socket == socket)
                     forward_message(client, response_message);
         }
     }
     catch (const boost::system::system_error &system_error)
     {
-        static boost::asio::ip::tcp::endpoint temp_endpoint = socket->remote_endpoint();
-
         std::cout << "[SERVER]: Connection closed with [" << temp_endpoint << "]" << std::endl;
 
-        for (std::vector<Client>::iterator client_it = client_list.begin(); client_it != client_list.end(); client_it++)
+        for (Client &client : client_list)
         {
-            if ((*client_it).m_endpoint == temp_endpoint)
+            if (client.m_endpoint == temp_endpoint)
             {
-                std::vector<Client>::iterator begin_it = room_list[(*client_it).m_room_id - 1].m_client_list.begin();
-
-                for (uint32_t room_client = 0; room_client <= room_list[(*client_it).m_room_id - 1].m_client_list.size(); room_client++)
-                {
-                    if (room_list[(*client_it).m_room_id - 1].m_client_list[room_client].m_id == (*client_it).m_id)
-                    {
-                        room_list[(*client_it).m_room_id - 1].m_client_list.erase(begin_it + room_client);
-                    }
-                    else
-                    {
-                        boost::asio::ip::tcp::endpoint disconnected_endpoint = temp_endpoint;
-                        std::string disconnected_ip = disconnected_endpoint.address().to_string() + ":" + std::to_string(disconnected_endpoint.port());
-
-                        boost::asio::write(*(room_list[(*client_it).m_room_id - 1].m_client_list[room_client]).m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + disconnected_ip + "] have disconnected !\n"));
-                    }
-                }
-
-                /*std::vector<Client>::iterator begin_it = room_list[(*client_it).m_room_id - 1].m_client_list.begin();
-
-                std::vector<Client>::iterator end_it = room_list[(*client_it).m_room_id - 1].m_client_list.end();
-
-                for(std::vector<Client>::iterator room_client_it = begin_it; client_it != end_it; client_it++)
-                {
-                    if((*room_client_it).m_id == (*client_it).m_id)
-                        room_list[(*room_client_it).m_room_id - 1].m_client_list.erase(room_client_it);
-                    else
-                    {
-                        boost::asio::ip::tcp::endpoint disconnected_endpoint = temp_endpoint;
-                        std::string disconnected_ip = disconnected_endpoint.address().to_string() + ":" + std::to_string(disconnected_endpoint.port());
-
-                        boost::asio::write(*(*room_client_it).m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + disconnected_ip + "] have disconnected !\n"));
-                    }
-                }*/
-
-                (*client_it).m_socket->close();
-                client_list.erase(client_it);
+                remove_client(client);
                 break;
             }
         }
