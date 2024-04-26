@@ -101,12 +101,24 @@ std::vector<Client> client_list;
 
 std::string list_open_rooms()
 {
-    std::string room_list_str;
+    std::vector<std::string> room_list_str;
 
     for (Room room : room_list)
-        room_list_str += "ID:" + std::to_string(room.m_id) + ";Name:" + room.m_name + ";Size:" + std::to_string(room.m_size) + ";Connected:" + std::to_string(room.m_client_list.size()) + "\n";
+    {
+        json room_json = {
+            {"ID", room.m_id},
+            {"Name", room.m_name},
+            {"Size", room.m_size},
+            {"Connected", room.m_client_list.size()}
+        };
 
-    return room_list_str;
+        room_list_str.push_back(room_json.dump());
+    }
+
+    json room_list_json = {{"RoomList", room_list_str}};
+
+    std::string response = room_list_json.dump();
+    return response;
 }
 
 void forward_welcome_message(Client &sender_client, Room &receiver_room)
