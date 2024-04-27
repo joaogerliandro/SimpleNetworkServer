@@ -126,10 +126,25 @@ void forward_welcome_message(Client &sender_client, Room &receiver_room)
     boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_endpoint;
 
     for (Client receiver_client : receiver_room.m_client_list)
+    {
+        json message_content;
+        std::string dumped_message_str;
+
         if (receiver_client.m_endpoint == sender_endpoint)
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Welcome " + receiver_client.m_name + " ! You have connected to [" + receiver_room.m_name + "] !\n"));
+        {
+            message_content = {{"Message", "[<font color='green'>SERVER</font>]: Welcome " + receiver_client.m_name + " ! You have connected to [" + receiver_room.m_name + "] !\n"}};
+            dumped_message_str = message_content.dump();
+        }
         else
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + sender_client.m_name + "] have connected !\n"));
+        {
+            message_content = {{"Message", "[<font color='green'>SERVER</font>]: Client [" + sender_client.m_name + "] have connected !\n"}};
+            dumped_message_str = message_content.dump();
+        }
+
+        Message message(server_endpoint.address().to_v4().to_string(), server_endpoint.port(), dumped_message_str, MESSAGE_TYPE::FORWARD); 
+
+        boost::asio::write(*receiver_client.m_socket, boost::asio::buffer(message.to_string() + "\n"));
+    }
 }
 
 void room_connection_handler(Client &sender_client, std::string room_connection_str)
@@ -140,12 +155,12 @@ void room_connection_handler(Client &sender_client, std::string room_connection_
     {
         if(room_connection_content["RoomId"] == room.m_id)
         {
-            sender_client.m_room_id = room.m_id;
-            room_list[room.m_id - 1].m_client_list.push_back(sender_client);
+            sender_client.m_room_id = room.m_id; // Observar esse cara
+            room_list[room.m_id - 1].m_client_list.push_back(sender_client); // Observar esse cara
 
-            std::cout << "[SERVER]: Client [" << sender_client.m_socket->remote_endpoint() << "]-[" << sender_client.m_name << "] joined into  [" << room.m_name << "] !" << std::endl;
+            std::cout << "[SERVER]: Client [" << sender_client.m_socket->remote_endpoint() << "]-[" << sender_client.m_name << "] joined into [" << room.m_name << "] !" << std::endl;
         
-            // forward_welcome_message(sender_client, room_list[room.m_id - 1]);
+            forward_welcome_message(sender_client, room_list[room.m_id - 1]);
         }
     }
 }
@@ -229,21 +244,40 @@ void remove_client(Client &client)
     client_list.erase(client_it);
 }
 
-void forward_message(Client &sender_client, std::string response_message)
+void forward_message(Client &sender_client, std::string forwarded_message)
 {
     boost::asio::ip::tcp::endpoint sender_endpoint = sender_client.m_endpoint;
 
     Room receiver_room = room_list[sender_client.m_room_id - 1];
 
-    std::cout << "[" << receiver_room.m_name << "]"
-              << "-[" << sender_endpoint << "]"
-              << "-[" << sender_client.m_name << "]: " << response_message << std::endl;
+    json forwarded_message_json = json::parse(forwarded_message);
+
+    std::string message = forwarded_message_json["Message"];
+
+    std::cout << "["  << receiver_room.m_name  << "]"
+              << "-[" << sender_endpoint       << "]"
+              << "-[" << sender_client.m_name  << "]: " << message << std::endl;
 
     for (Client receiver_client : receiver_room.m_client_list)
+    {
+        json message_content;
+        std::string dumped_message_str;
+
         if (receiver_client.m_endpoint == sender_endpoint)
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='blue'>" + receiver_client.m_name + "</font>]: " + response_message + "\n"));
+        {
+            message_content = {{"Message", "[<font color='blue'>" + receiver_client.m_name + "</font>]: " + message + "\n"}};
+            dumped_message_str = message_content.dump();
+        }
         else
-            boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='red'>" + sender_client.m_name + "</font>]: " + response_message + "\n"));
+        {
+            message_content = {{"Message", "[<font color='red'>" + sender_client.m_name + "</font>]: " + message + "\n"}};
+            dumped_message_str = message_content.dump();
+        }
+
+        Message message(server_endpoint.address().to_v4().to_string(), server_endpoint.port(), dumped_message_str, MESSAGE_TYPE::FORWARD); 
+
+        boost::asio::write(*receiver_client.m_socket, boost::asio::buffer(message.to_string() + "\n"));
+    }
 }
 
 void new_session(tcp::socket *socket)
@@ -262,9 +296,9 @@ void new_session(tcp::socket *socket)
                     connection_handshake(socket, response_message.m_content);
                     break;
                 case ROOM_CHOICE:
-                    for (Client client : client_list)
-                        if (client.m_socket == socket)
-                            room_connection_handler(client, response_message.m_content);
+                    for(std::vector<Client>::iterator client_it = client_list.begin(); client_it != client_list.end(); client_it++)
+                        if((*client_it).m_socket == socket)
+                            room_connection_handler((*client_it), response_message.m_content);
                     break;
                 case FORWARD:
                     for (Client client : client_list)
