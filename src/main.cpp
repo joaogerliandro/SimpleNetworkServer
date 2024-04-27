@@ -12,6 +12,7 @@ boost::asio::ip::tcp::endpoint server_endpoint;
 enum MESSAGE_TYPE
 {
     HANDSHAKING,
+    ROOM_CHOICE,
     FORWARD
 };
 
@@ -131,6 +132,24 @@ void forward_welcome_message(Client &sender_client, Room &receiver_room)
             boost::asio::write(*receiver_client.m_socket, boost::asio::buffer("[<font color='green'>SERVER</font>]: Client [" + sender_client.m_name + "] have connected !\n"));
 }
 
+void room_connection_handler(Client &sender_client, std::string room_connection_str)
+{
+    json room_connection_content = json::parse(room_connection_str);
+
+    for (Room room : room_list)
+    {
+        if(room_connection_content["RoomId"] == room.m_id)
+        {
+            sender_client.m_room_id = room.m_id;
+            room_list[room.m_id - 1].m_client_list.push_back(sender_client);
+
+            std::cout << "[SERVER]: Client [" << sender_client.m_socket->remote_endpoint() << "]-[" << sender_client.m_name << "] joined into  [" << room.m_name << "] !" << std::endl;
+        
+            // forward_welcome_message(sender_client, room_list[room.m_id - 1]);
+        }
+    }
+}
+
 void connection_handshake(tcp::socket *socket, std::string handshake_content_str)
 {
     Client new_client(socket);
@@ -140,50 +159,16 @@ void connection_handshake(tcp::socket *socket, std::string handshake_content_str
 
     std::string client_username = handshake_content["Username"];
 
+    new_client.m_id = client_count++;
+    new_client.m_name = client_username;
+
+    client_list.push_back(new_client);
+
+    std::cout << "[SERVER]: Client [" << socket->remote_endpoint() << "]-[" << client_username << "] have connected to server !" << std::endl;
+
     Message open_room_list_message(server_endpoint.address().to_v4().to_string(), server_endpoint.port(), list_open_rooms(), MESSAGE_TYPE::HANDSHAKING);
 
     boost::asio::write(*socket, boost::asio::buffer(open_room_list_message.to_string() + "\n"));
-
-    /*
-    bool handshake_is_over = false;
-    
-    while (true)
-    {
-        boost::asio::streambuf handshake_buffer;
-
-        boost::asio::read_until(*socket, handshake_buffer, "\n");
-
-        std::string handshake_response_str = boost::asio::buffer_cast<const char *>(handshake_buffer.data());
-
-        handshake_response_str.erase(std::remove(handshake_response_str.begin(), handshake_response_str.end(), '\n'), handshake_response_str.cend());
-
-        Message handshake_response_message(handshake_response_str);
-
-        json handshake_content = json::parse(handshake_response_message.m_content);
-
-        for (Room room : room_list)
-        {
-            if (handshake_content["RoomId"] == room.m_id)
-            {
-                new_client.m_id = client_count++;
-                new_client.m_name = client_username;
-                new_client.m_room_id = room.m_id;
-
-                std::cout << "[SERVER]: Client [" << socket->remote_endpoint() << "]-[" << client_username << "] have connected to [" << room.m_name << "]" << std::endl;
-
-                client_list.push_back(new_client);
-                room_list[room.m_id - 1].m_client_list.push_back(new_client);
-
-                forward_welcome_message(new_client, room_list[room.m_id - 1]);
-
-                handshake_is_over = true;
-                break;
-            }
-        }
-
-        if (handshake_is_over)
-            break;
-    }*/
 }
 
 Message listen_client(tcp::socket *socket)
@@ -275,6 +260,11 @@ void new_session(tcp::socket *socket)
             {
                 case HANDSHAKING:
                     connection_handshake(socket, response_message.m_content);
+                    break;
+                case ROOM_CHOICE:
+                    for (Client client : client_list)
+                        if (client.m_socket == socket)
+                            room_connection_handler(client, response_message.m_content);
                     break;
                 case FORWARD:
                     for (Client client : client_list)
