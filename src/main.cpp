@@ -101,7 +101,7 @@ std::vector<Client> client_list;
 
 std::string list_open_rooms()
 {
-    std::vector<std::string> room_list_str;
+    std::vector<json> room_list_json;
 
     for (Room room : room_list)
     {
@@ -109,16 +109,15 @@ std::string list_open_rooms()
             {"ID", room.m_id},
             {"Name", room.m_name},
             {"Size", room.m_size},
-            {"Connected", room.m_client_list.size()}
+            {"ConnectedClients", room.m_client_list.size()}
         };
 
-        room_list_str.push_back(room_json.dump());
+        room_list_json.push_back(room_json);
     }
 
-    json room_list_json = {{"RoomList", room_list_str}};
+    json open_room_list_json = {{"RoomList", room_list_json}};
 
-    std::string response = room_list_json.dump();
-    return response;
+    return open_room_list_json.dump();
 }
 
 void forward_welcome_message(Client &sender_client, Room &receiver_room)
@@ -145,8 +144,9 @@ void connection_handshake(tcp::socket *socket, std::string handshake_content_str
 
     boost::asio::write(*socket, boost::asio::buffer(open_room_list_message.to_string() + "\n"));
 
+    /*
     bool handshake_is_over = false;
-
+    
     while (true)
     {
         boost::asio::streambuf handshake_buffer;
@@ -183,7 +183,7 @@ void connection_handshake(tcp::socket *socket, std::string handshake_content_str
 
         if (handshake_is_over)
             break;
-    }
+    }*/
 }
 
 Message listen_client(tcp::socket *socket)
